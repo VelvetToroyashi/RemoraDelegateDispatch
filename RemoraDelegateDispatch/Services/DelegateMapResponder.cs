@@ -17,24 +17,43 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
     private static readonly MethodInfo ResultFromSuccess = typeof(Result).GetMethod(nameof(Result.FromSuccess), BindingFlags.Public | BindingFlags.Static)!;
     private static readonly MethodInfo GetServiceMethodInfo = typeof(IServiceProvider).GetMethod(nameof(IServiceProvider.GetService), BindingFlags.Instance | BindingFlags.Public)!;
     
-    private readonly FrozenDictionary<Type, FrozenSet<ResponderDelegate>> _map = BuildMap(_mapBuilder, _services);
+    private readonly FrozenDictionary<Type, FrozenSet<ResponderDelegate>> _map = BuildMap(_mapBuilder);
 
-    public Task<Result> RespondAsync(IGatewayEvent gatewayEvent, CancellationToken ct = new CancellationToken()) => throw new NotImplementedException();
-    
-    private static FrozenDictionary<Type, FrozenSet<ResponderDelegate>> BuildMap(IOptions<DelegateMapBuilder> mapBuilder, IServiceProvider services)
+    private static FrozenDictionary<Type, FrozenSet<ResponderDelegate>> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
     {
+        var tempDictionary = new Dictionary<Type, FrozenSet<ResponderDelegate>>();
         foreach (var (responderType, responderList) in mapBuilder.Value._responders)
         {
-            var responderDelegates = new List<ResponderDelegate>();
+            var responderDelegates = responderList.Select(del => BuildDelegate(responderType, del)).ToFrozenSet();
+            tempDictionary[responderType] = responderDelegates;
+        }
 
-            foreach (var del in responderList)
-            {
-                var builtDelegate = BuildDelegate(responderType, del);
-            }
+        return tempDictionary.ToFrozenDictionary();
+    }
+
+    /// <inheritdoc/>
+    public async Task<Result> RespondAsync(IGatewayEvent gatewayEvent, CancellationToken ct = default)
+    {
+        var hasResponders = _map.TryGetValue(gatewayEvent.GetType(), out var delegates);
+
+        if (!hasResponders)
+        {
+            return Result.FromSuccess();
         }
         
-        
-        throw new NotImplementedException();
+        var errors = new List<IResult>();
+
+        foreach (var responder in delegates!)
+        {
+            var delegateResult = await responder(gatewayEvent, _services, ct);
+
+            if (!delegateResult.IsSuccess)
+            {
+                errors.Add(delegateResult);
+            }
+        }
+
+        return errors.Count > 0 ? new AggregateError(errors) : Result.FromSuccess();
     }
 
     private static ResponderDelegate BuildDelegate(Type inputType, Delegate invocation)
@@ -57,7 +76,7 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
 
         if (arguments.Length > 1)
         {
-            for (int i = 1; i < arguments.Length - (lastArgumentIsCt ? 2 : 1); i++)
+            for (var i = 1; i < arguments.Length - (lastArgumentIsCt ? 2 : 1); i++)
             {
                 arguments[i] = Expression.Convert(Expression.Call(serviceProvider, GetServiceMethodInfo), invokeArguments[i].ParameterType);
             }
@@ -70,7 +89,7 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         return compiled;
     }
     
-        /// <summary>
+    /// <summary>
     /// Coerces the static result type of an expression to a <see cref="ValueTask{IResult}"/>.
     /// <list type="bullet">
     /// <item>If the type is <see cref="ValueTask{T}"/>, returns the expression as-is</item>
@@ -94,12 +113,14 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         {
             invokerExpr = Expression.Call(ToResultTaskInfo.MakeGenericMethod(expressionType.GetGenericArguments()[0]), expression);
         }
-        else if (expressionType != typeof(void))
+        else if (expressionType == typeof(void))
+        {
+            invokerExpr = Expression.Call(ValueTaskFromResult, Expression.Block(expression, Expression.Convert(Expression.Call(ResultFromSuccess), typeof(IResult))));
+        }
+        else
         {
             throw new InvalidOperationException($"{nameof(CoerceToValueTask)} expression must be void, {nameof(Task<IResult>)}, or {nameof(ValueTask<IResult>)}");
         }
-
-        invokerExpr = Expression.Call(ValueTaskFromResult, Expression.Block(expression, Expression.Convert(Expression.Call(ResultFromSuccess), typeof(IResult))));
 
         return invokerExpr;
     }

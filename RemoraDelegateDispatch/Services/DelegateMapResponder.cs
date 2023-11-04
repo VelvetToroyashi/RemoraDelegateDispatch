@@ -132,10 +132,10 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         => await task;
 
     private static readonly MethodInfo ToResultValueTaskInfo
-        = typeof(DelegateMapBuilder).GetMethod(nameof(ToResultValueTask), BindingFlags.Static | BindingFlags.NonPublic)
+        = typeof(DelegateMapResponder).GetMethod(nameof(ToResultValueTask), BindingFlags.Static | BindingFlags.NonPublic)
           ?? throw new InvalidOperationException($"Did not find {nameof(ToResultValueTask)}");
 
     private static readonly MethodInfo ToResultTaskInfo
-        = typeof(DelegateMapBuilder).GetMethod(nameof(ToResultTask), BindingFlags.Static | BindingFlags.NonPublic)
+        = typeof(DelegateMapResponder).GetMethod(nameof(ToResultTask), BindingFlags.Static | BindingFlags.NonPublic)
           ?? throw new InvalidOperationException($"Did not find {nameof(ToResultTask)}");
 }

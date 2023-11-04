@@ -82,7 +82,7 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
             }
         }
 
-        var call = CoerceToValueTask(Expression.Call(Expression.Constant(invocation.Target), invocation.Method));
+        var call = CoerceToValueTask(Expression.Call(Expression.Constant(invocation.Target), invocation.Method, arguments));
 
         var compiled = Expression.Lambda<ResponderDelegate>(call).Compile();
 

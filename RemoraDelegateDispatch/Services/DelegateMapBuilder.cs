@@ -11,7 +11,7 @@ namespace RemoraDelegateDispatch.Services;
 /// </summary>
 public class DelegateMapBuilder
 {
-    internal readonly Dictionary<Type, List<Delegate>> _responders = new();
+    internal readonly List<(Type, Delegate)> _responders = new();
 
     /// <summary>
     /// Subscribes a delegate to a given event.
@@ -21,14 +21,10 @@ public class DelegateMapBuilder
     public void AddResponderAsync<TEvent>(Delegate del) where TEvent : IGatewayEvent
     {
         ValidateDelegate<TEvent>(del);
-        
-        var delegateList = _responders.GetValueOrDefault(typeof(TEvent)) ?? new();
-        delegateList.Add(del);
-        
-        _responders[typeof(TEvent)] = delegateList;
+        _responders.Add((typeof(TEvent), del));
     }
 
-    private void ValidateDelegate<TEvent>(Delegate del)
+    private static void ValidateDelegate<TEvent>(Delegate del)
     {
         var parameters = del.Method.GetParameters();
         var returnType = del.Method.ReturnType;

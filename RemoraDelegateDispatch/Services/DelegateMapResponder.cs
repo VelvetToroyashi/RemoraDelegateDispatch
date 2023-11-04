@@ -19,47 +19,47 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
     private static readonly MethodInfo ResultFromSuccess = typeof(Result).GetMethod(nameof(Result.FromSuccess), BindingFlags.Public | BindingFlags.Static)!;
     private static readonly MethodInfo GetServiceMethodInfo = typeof(IServiceProvider).GetMethod(nameof(IServiceProvider.GetService), BindingFlags.Instance | BindingFlags.Public)!;
     
-    private readonly FrozenSet<(Type ResponderType, ResponderDelegate[] Delegates)> _map = BuildMap(_mapBuilder);
+    private readonly ResponderDelegate[] _responders = BuildMap(_mapBuilder);
 
-    private static FrozenSet<(Type, ResponderDelegate[])> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
+    private static ResponderDelegate[] BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
     {
-        var tempList = new List<(Type, ResponderDelegate[])>();
-        foreach (var (responderType, responderList) in mapBuilder.Value._responders)
+        var compiledArray = new ResponderDelegate[mapBuilder.Value._responders.Count];
+        var tempArray = mapBuilder.Value._responders.ToArray();
+
+        for (var i = 0; i < tempArray.Length; i++)
         {
-            var responderDelegates = responderList.Select(del => BuildDelegate(responderType, del)).ToArray();
-            tempList.Add((responderType, responderDelegates));
+            var (responderType, responderDelegate) = tempArray[i];
+            compiledArray[i] = BuildDelegate(responderType, responderDelegate);
         }
 
-        return tempList.ToFrozenSet();
+        return compiledArray;
     }
 
     /// <inheritdoc/>
     public async Task<Result> RespondAsync(IGatewayEvent gatewayEvent, CancellationToken ct = default)
     {
-        var matchingResponders = Array.Empty<ResponderDelegate>();
+        var errors = new List<IResult>();
 
-        for (int i = 0; i < _map.Count; i++)
+        foreach (var responder in _responders)
         {
-            var (type, responders) = _map.ElementAt(i);
+            var delegateResult = responder(gatewayEvent, _services, ct);
 
-            if (!type.IsInstanceOfType(gatewayEvent))
+            if (delegateResult.IsCompletedSuccessfully)
             {
+                if (delegateResult.Result is not { IsSuccess: false } unsuccessfulResult)
+                {
+                    continue;
+                }
+                
+                errors.Add(unsuccessfulResult);
+
                 continue;
             }
 
-            matchingResponders = responders;
-            break;
-        }
-        
-        var errors = new List<IResult>();
-
-        foreach (var responder in matchingResponders)
-        {
-            var delegateResult = await responder(gatewayEvent, _services, ct);
-
-            if (!delegateResult.IsSuccess)
+            var delegateResultResult = await delegateResult;
+            if (!delegateResultResult.IsSuccess)
             {
-                errors.Add(delegateResult);
+                errors.Add(delegateResultResult);
             }
         }
 
@@ -68,15 +68,15 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
 
     private static ResponderDelegate BuildDelegate(Type inputType, Delegate invocation)
     {
-        var eventParam = Expression.Parameter(inputType, "event");
+        var eventParam = Expression.Parameter(typeof(IGatewayEvent), "event");
         var serviceProvider = Expression.Parameter(typeof(IServiceProvider), "services");
         var cancellationToken = Expression.Parameter(typeof(CancellationToken), "ct");
 
         var invokeArguments = invocation.Method.GetParameters();
         var arguments = new Expression[invokeArguments.Length];
         var lastArgumentIsCt = false;
-
-        arguments[0] = eventParam;
+        
+        arguments[0] = Expression.TypeAs(eventParam, inputType);
 
         if (invokeArguments[^1].ParameterType == typeof(CancellationToken))
         {
@@ -93,12 +93,15 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
             }
         }
 
+        var check = Expression.NotEqual(arguments[0], Expression.Constant(null));
+        
         var call = CoerceToValueTask(Expression.Call(invocation.Target is null ? null : Expression.Constant(invocation.Target), invocation.Method, arguments));
+        var completedResultValueTask = Expression.Call(ValueTaskFromResult, Expression.Convert(Expression.Call(ResultFromSuccess), typeof(IResult)));
+        
+        var retBlock = Expression.Condition(check, call, completedResultValueTask);
+        var compiled = Expression.Lambda<ResponderDelegate>(retBlock, eventParam, serviceProvider, cancellationToken).Compile();
 
-        var delegateType = typeof(Func<,,,>).MakeGenericType(inputType, typeof(IServiceProvider), typeof(CancellationToken), typeof(ValueTask<IResult>));
-        var compiled = Expression.Lambda(delegateType, call, eventParam, serviceProvider, cancellationToken).Compile();
-
-        return Unsafe.As<ResponderDelegate>(compiled);
+        return compiled; //Unsafe.As<ResponderDelegate>(compiled);
     }
     
     /// <summary>

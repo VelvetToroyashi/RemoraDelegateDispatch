@@ -88,7 +88,8 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         {
             for (var i = 1; i < arguments.Length - (lastArgumentIsCt ? 1 : 0); i++)
             {
-                arguments[i] = Expression.Convert(Expression.Call(serviceProvider, GetServiceMethodInfo), invokeArguments[i].ParameterType);
+                var parameterType = invokeArguments[i].ParameterType;
+                arguments[i] = Expression.Convert(Expression.Call(serviceProvider, GetServiceMethodInfo, Expression.Constant(parameterType)), parameterType);
             }
         }
 

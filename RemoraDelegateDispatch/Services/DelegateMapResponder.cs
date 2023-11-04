@@ -17,14 +17,14 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
     private static readonly MethodInfo ResultFromSuccess = typeof(Result).GetMethod(nameof(Result.FromSuccess), BindingFlags.Public | BindingFlags.Static)!;
     private static readonly MethodInfo GetServiceMethodInfo = typeof(IServiceProvider).GetMethod(nameof(IServiceProvider.GetService), BindingFlags.Instance | BindingFlags.Public)!;
     
-    private readonly FrozenDictionary<Type, FrozenSet<ResponderDelegate>> _map = BuildMap(_mapBuilder);
+    private readonly FrozenDictionary<Type, ResponderDelegate[]> _map = BuildMap(_mapBuilder);
 
-    private static FrozenDictionary<Type, FrozenSet<ResponderDelegate>> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
+    private static FrozenDictionary<Type, ResponderDelegate[]> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
     {
-        var tempDictionary = new Dictionary<Type, FrozenSet<ResponderDelegate>>();
+        var tempDictionary = new Dictionary<Type, ResponderDelegate[]>();
         foreach (var (responderType, responderList) in mapBuilder.Value._responders)
         {
-            var responderDelegates = responderList.Select(del => BuildDelegate(responderType, del)).ToFrozenSet();
+            var responderDelegates = responderList.Select(del => BuildDelegate(responderType, del)).ToArray();
             tempDictionary[responderType] = responderDelegates;
         }
 

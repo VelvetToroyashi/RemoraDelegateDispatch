@@ -19,33 +19,41 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
     private static readonly MethodInfo ResultFromSuccess = typeof(Result).GetMethod(nameof(Result.FromSuccess), BindingFlags.Public | BindingFlags.Static)!;
     private static readonly MethodInfo GetServiceMethodInfo = typeof(IServiceProvider).GetMethod(nameof(IServiceProvider.GetService), BindingFlags.Instance | BindingFlags.Public)!;
     
-    private readonly FrozenDictionary<Type, ResponderDelegate[]> _map = BuildMap(_mapBuilder);
+    private readonly FrozenSet<(Type ResponderType, ResponderDelegate[] Delegates)> _map = BuildMap(_mapBuilder);
 
-    private static FrozenDictionary<Type, ResponderDelegate[]> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
+    private static FrozenSet<(Type, ResponderDelegate[])> BuildMap(IOptions<DelegateMapBuilder> mapBuilder)
     {
-        var tempDictionary = new Dictionary<Type, ResponderDelegate[]>();
+        var tempList = new List<(Type, ResponderDelegate[])>();
         foreach (var (responderType, responderList) in mapBuilder.Value._responders)
         {
             var responderDelegates = responderList.Select(del => BuildDelegate(responderType, del)).ToArray();
-            tempDictionary[responderType] = responderDelegates;
+            tempList.Add((responderType, responderDelegates));
         }
 
-        return tempDictionary.ToFrozenDictionary();
+        return tempList.ToFrozenSet();
     }
 
     /// <inheritdoc/>
     public async Task<Result> RespondAsync(IGatewayEvent gatewayEvent, CancellationToken ct = default)
     {
-        var hasResponders = _map.TryGetValue(gatewayEvent.GetType(), out var delegates);
+        var matchingResponders = Array.Empty<ResponderDelegate>();
 
-        if (!hasResponders)
+        for (int i = 0; i < _map.Count; i++)
         {
-            return Result.FromSuccess();
+            var (type, responders) = _map.ElementAt(i);
+
+            if (!type.IsInstanceOfType(gatewayEvent))
+            {
+                continue;
+            }
+
+            matchingResponders = responders;
+            break;
         }
         
         var errors = new List<IResult>();
 
-        foreach (var responder in delegates!)
+        foreach (var responder in matchingResponders)
         {
             var delegateResult = await responder(gatewayEvent, _services, ct);
 

@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Remora.Discord.API.Abstractions.Gateway.Events;
 using Remora.Results;
@@ -54,6 +55,8 @@ public class DelegateMapBuilder
         => type == typeof(void)      ||
            type == typeof(Task)      ||
            type == typeof(ValueTask) ||
+           type.IsAssignableTo(typeof(IResult)) ||
+           type.GetMethod(nameof(Task.GetAwaiter), BindingFlags.Public | BindingFlags.Instance) is not null && 
            type.GetGenericArguments() is [var genericType] _ &&
            genericType.IsAssignableTo(typeof(IResult));
 

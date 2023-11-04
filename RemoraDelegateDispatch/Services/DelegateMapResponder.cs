@@ -1,6 +1,8 @@
 using System.Collections.Frozen;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Remora.Discord.API.Abstractions.Gateway.Events;
 using Remora.Discord.Gateway.Responders;
@@ -84,9 +86,10 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
 
         var call = CoerceToValueTask(Expression.Call(Expression.Constant(invocation.Target), invocation.Method, arguments));
 
-        var compiled = Expression.Lambda<ResponderDelegate>(call).Compile();
+        var delegateType = typeof(Func<,,,>).MakeGenericType(inputType, typeof(IServiceProvider), typeof(CancellationToken), typeof(ValueTask<IResult>));
+        var compiled = Expression.Lambda(delegateType, call, eventParam, serviceProvider, cancellationToken).Compile();
 
-        return compiled;
+        return Unsafe.As<ResponderDelegate>(compiled);
     }
     
     /// <summary>

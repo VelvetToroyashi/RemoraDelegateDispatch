@@ -86,13 +86,13 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
 
         if (arguments.Length > 1)
         {
-            for (var i = 1; i < arguments.Length - (lastArgumentIsCt ? 2 : 1); i++)
+            for (var i = 1; i < arguments.Length - (lastArgumentIsCt ? 1 : 0); i++)
             {
                 arguments[i] = Expression.Convert(Expression.Call(serviceProvider, GetServiceMethodInfo), invokeArguments[i].ParameterType);
             }
         }
 
-        var call = CoerceToValueTask(Expression.Call(Expression.Constant(invocation.Target), invocation.Method, arguments));
+        var call = CoerceToValueTask(Expression.Call(invocation.Target is null ? null : Expression.Constant(invocation.Target), invocation.Method, arguments));
 
         var delegateType = typeof(Func<,,,>).MakeGenericType(inputType, typeof(IServiceProvider), typeof(CancellationToken), typeof(ValueTask<IResult>));
         var compiled = Expression.Lambda(delegateType, call, eventParam, serviceProvider, cancellationToken).Compile();
@@ -124,7 +124,7 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         {
             invokerExpr = Expression.Call(ToResultTaskInfo.MakeGenericMethod(expressionType.GetGenericArguments()[0]), expression);
         }
-        else if (expressionType == typeof(void))
+        else if (expressionType == typeof(void) || expressionType == typeof(Task) || expressionType == typeof(ValueTask))
         {
             invokerExpr = Expression.Call(ValueTaskFromResult, Expression.Block(expression, Expression.Convert(Expression.Call(ResultFromSuccess), typeof(IResult))));
         }

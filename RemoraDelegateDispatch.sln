@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoraDelegateDispatch", "RemoraDelegateDispatch\RemoraDelegateDispatch.csproj", "{DCEA0895-CBE2-4C95-A600-A19EB2112B20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoraDelegateDispatch.Tests", "tests\RemoraDelegateDispatch.Tests\RemoraDelegateDispatch.Tests.csproj", "{D995B5FB-4509-489F-9950-B32ACA816EA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{DCEA0895-CBE2-4C95-A600-A19EB2112B20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DCEA0895-CBE2-4C95-A600-A19EB2112B20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DCEA0895-CBE2-4C95-A600-A19EB2112B20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D995B5FB-4509-489F-9950-B32ACA816EA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D995B5FB-4509-489F-9950-B32ACA816EA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D995B5FB-4509-489F-9950-B32ACA816EA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D995B5FB-4509-489F-9950-B32ACA816EA1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

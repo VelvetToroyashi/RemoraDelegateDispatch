@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Remora.Discord.API.Abstractions.Gateway.Events;
 using Remora.Results;
 
+[assembly: InternalsVisibleTo("RemoraDelegateDispatch.Tests")]
 namespace RemoraDelegateDispatch.Services;
 
 /// <summary>

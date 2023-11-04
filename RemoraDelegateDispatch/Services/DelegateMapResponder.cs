@@ -10,7 +10,7 @@ using Remora.Results;
 
 namespace RemoraDelegateDispatch.Services;
 
-public delegate ValueTask<Result> ResponderDelegate(IGatewayEvent @event, IServiceProvider services, CancellationToken cancellationToken);
+public delegate ValueTask<IResult> ResponderDelegate(IGatewayEvent @event, IServiceProvider services, CancellationToken cancellationToken);
 
 public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, IServiceProvider _services) : IResponder<IGatewayEvent>
 {

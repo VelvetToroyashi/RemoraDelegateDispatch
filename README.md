@@ -73,9 +73,7 @@ serviceCollection.AddDelegateResponder<IMessageCreate>
 );
 ```
 > [!IMPORTANT]
-> ## Delegates *MUST* be registered before the container is built. 
-> The dispatcher is considered immutable after that point.
-
+> Delegates *MUST* be registered before the container is built. 
 ---
 
 # Known issues and considerations

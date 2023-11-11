@@ -126,7 +126,7 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         {
             invokerExpr = Expression.Call(ToResultValueTaskInfo.MakeGenericMethod(expressionType.GetGenericArguments()[0]), expression);
         }
-        else if (expressionType.IsConstructedGenericType && expressionType.GetGenericTypeDefinition() == typeof(Task<>))
+        else if (expressionType.IsConstructedGenericType && typeof(Task<>).IsAssignableFrom(expressionType.GetGenericTypeDefinition()))
         {
             invokerExpr = Expression.Call(ToResultTaskInfo.MakeGenericMethod(expressionType.GetGenericArguments()[0]), expression);
         }

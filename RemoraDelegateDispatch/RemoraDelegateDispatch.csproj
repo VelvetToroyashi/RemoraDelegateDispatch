@@ -4,6 +4,10 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>VTP.Remora.DelegateDispatch</PackageId>
+        <Authors>Velvet Toroyashi</Authors>
+        <PackageProjectUrl>https://github.com/VelvetToroyashi/RemoraDelegateDispatch</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/VelvetToroyashi/RemoraDelegateDispatch</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>

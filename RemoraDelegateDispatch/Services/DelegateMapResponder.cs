@@ -18,6 +18,8 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
                                                                               !.MakeGenericMethod(typeof(IResult));
     private static readonly MethodInfo ResultFromSuccess = typeof(Result).GetMethod(nameof(Result.FromSuccess), BindingFlags.Public | BindingFlags.Static)!;
     private static readonly MethodInfo GetServiceMethodInfo = typeof(IServiceProvider).GetMethod(nameof(IServiceProvider.GetService), BindingFlags.Instance | BindingFlags.Public)!;
+    private static readonly ValueTask<IResult> SuccessfulResultValueTask = ValueTask.FromResult((IResult)Result.FromSuccess());
+    
     
     private readonly ResponderDelegate[] _responders = BuildMap(_mapBuilder);
 
@@ -128,9 +130,17 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
         {
             invokerExpr = Expression.Call(ToResultTaskInfo.MakeGenericMethod(expressionType.GetGenericArguments()[0]), expression);
         }
-        else if (expressionType == typeof(void) || expressionType == typeof(Task) || expressionType == typeof(ValueTask))
+        else if (expressionType == typeof(void))
         {
-            invokerExpr = Expression.Call(ValueTaskFromResult, Expression.Block(expression, Expression.Convert(Expression.Call(ResultFromSuccess), typeof(IResult))));
+            invokerExpr = Expression.Call(ValueTaskFromResult, Expression.Block(expression, Expression.Constant(SuccessfulResultValueTask)));
+        }
+        else if (expressionType == typeof(ValueTask))
+        {
+            invokerExpr = Expression.Call(AwaitValueTaskInfo, expression);
+        }
+        else if (typeof(Task).IsAssignableFrom(expressionType))
+        {
+            invokerExpr = Expression.Call(AwaitTaskHelperInfo, expression);
         }
         else
         {
@@ -145,6 +155,29 @@ public class DelegateMapResponder(IOptions<DelegateMapBuilder> _mapBuilder, ISer
 
     private static async ValueTask<IResult> ToResultTask<T>(Task<T> task) where T : IResult
         => await task;
+
+    private static async ValueTask<IResult> AwaitValueTask(ValueTask task)
+    {
+        await task;
+
+        return Result.FromSuccess();
+    }
+
+    private static async ValueTask<IResult> AwaitTaskHelper(Task task)
+    {
+        await task;
+
+        return Result.FromSuccess();
+    }
+    
+    private static readonly MethodInfo AwaitValueTaskInfo 
+        = typeof(DelegateMapResponder).GetMethod(nameof(AwaitValueTask), BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException($"Did not find {nameof(ToResultValueTask)}");
+    
+    private static readonly MethodInfo AwaitTaskHelperInfo 
+        = typeof(DelegateMapResponder).GetMethod(nameof(AwaitTaskHelper), BindingFlags.Static | BindingFlags.NonPublic)
+       ?? throw new InvalidOperationException($"Did not find {nameof(ToResultValueTask)}");
+
 
     private static readonly MethodInfo ToResultValueTaskInfo
         = typeof(DelegateMapResponder).GetMethod(nameof(ToResultValueTask), BindingFlags.Static | BindingFlags.NonPublic)
